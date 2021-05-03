@@ -2,6 +2,9 @@
 //g++ -std=c++0x robotclass.cpp
 //./a.out
 
+//Compile with: g++ solution.cpp -o app -std=c++11 -I/usr/include/python2.7 -lpython2.7
+#include "matplotlibcpp.h"
+//#include "src/matplotlibcpp.h" //Graph Library
 #include <iostream>
 #include <string>
 #include <math.h>
@@ -209,11 +212,11 @@ double max(double arr[], int n)
     }
     return max;
 }
-/*
+
 void visualization(int n, Robot robot, int step, Robot p[], Robot pr[])
 {
-	//Draw the robot, landmarks, particles and resampled particles on a graph
-	
+    //Draw the robot, landmarks, particles and resampled particles on a graph
+
     //Graph Format
     plt::title("MCL, step " + to_string(step));
     plt::xlim(0, 100);
@@ -233,21 +236,34 @@ void visualization(int n, Robot robot, int step, Robot p[], Robot pr[])
     for (int i = 0; i < sizeof(landmarks) / sizeof(landmarks[0]); i++) {
         plt::plot({ landmarks[i][0] }, { landmarks[i][1] }, "ro");
     }
-    
+
     //Draw robot position in blue
     plt::plot({ robot.x }, { robot.y }, "bo");
 
-	//Save the image and close the plot
+    //Save the image and close the plot
     plt::save("./Images/Step" + to_string(step) + ".png");
     plt::clf();
 }
+/*
+     _____________________________
+100 | .   .    .   . .        .   |  * landmark
+    |  .     .   .     .   .   .  |  . particle
+80  |     *  ..    *    .   *  .. |
+    |   ..  .   .  .  .    .      |
+60  |  .   . .    . .   . .   .   |
+    | .  .*   .  ..  .  .    *   .|
+40  |  .  . .  .     .   .  .  .  |
+    |   .    .  . .    . . .    . |
+20  |    .*   .    *  .  .  *  .  |
+    | .  . . .   .     .   . .  . |
+  0 |_____________________________|
+     0    20    40    60    80    100
 */
 
-//####   DON'T MODIFY ANYTHING ABOVE HERE! ENTER CODE BELOW ####
 int main()
 {
 
-        //Practice Interfacing with Robot Class
+    //Practice Interfacing with Robot Class
     Robot myrobot;
     myrobot.set_noise(5.0, 0.1, 5.0);
     myrobot.set(30.0, 50.0, M_PI / 2.0);
@@ -256,46 +272,68 @@ int main()
     myrobot.move(-M_PI / 2.0, 10.0);
     //cout << myrobot.read_sensors() << endl;
 
-    //####   DON'T MODIFY ANYTHING ABOVE HERE! ENTER CODE BELOW ####
-
     // Instantiating 1000 Particles each with a random position and orientation
+    /* 1. Generating Particles (1000)*/
     int n = 1000;
     Robot p[n];
-    //TODO: Your job is to loop over the set of particles
+
     for (int i = 0; i < n; i++)
     {
         p[i].set_noise(0.05, 0.05, 5.0);
-        cout << p[i].show_pose() << endl;
+        //cout << p[i].show_pose() << endl;
     }
-    //TODO: For each particle add noise: Forward_Noise=0.05, Turn_Noise=0.05, and Sense_Noise=5.0
-    //TODO: And print its pose on a single line
-    
-    
-   
-/*
-    // Instantiating a robot object from the Robot class
-    Robot myrobot;
-    // TODO: Simulate Noise
-    // Forward Noise=5.0, Turn Noise=0.1,Sense Noise=5.0
-    myrobot.set_noise(5.0, 0.1, 5.0);
+    // Re-initialize myrobot object and Initialize a measurement vector
+    myrobot = Robot();
+    vector<double> z;
 
-    // TODO: Set robot new position to x=10.0, y=10.0 and orientation=0
-    // Fill in the position and orientation values in myrobot.set() function
-    myrobot.set(10.0, 10.0, 0);
+    int steps = 50;
+    for(int t = 0; t < steps; t++)
+    {
 
-    // Printing out the new robot position and orientation
-    //cout << myrobot.show_pose() << endl;
+        //Move the robot and sense the environment afterwards
+        myrobot = myrobot.move(0.1, 5.0);
+        z = myrobot.sense();
 
-    // TODO: Rotate the robot clockwise by PI/2.0 and then move him forward by 10.0
-    // Use M_PI for the pi value
-    myrobot.move(-M_PI/2.0, 10.0);
-
-    // TODO: Print out the new robot position and orientation
-    cout << myrobot.show_pose() << endl;
-
-    // Printing the distance from the robot toward the eight landmarks
-    cout << myrobot.read_sensors() << endl;
-*/
-
+        /*2. Simulating Motion*/
+        Robot p2[n];
+        for (int j = 0; j < n; j++)
+        {
+            //p2[j].set_noise(0.05, 0.05, 5.0);
+            p2[j].move(0.1, 5.0);
+            p[j] = p2[j];
+            //cout << p[j].show_pose() << endl;
+        }
+        /*3. Importance Weight*/
+        double w[n];
+        for (int k = 0; k < n; k++)
+        {
+            w[k] = p[k].measurement_prob(z);
+            //cout << w[k] << endl;
+        }
+        /*4. Resampling*/
+        Robot p3[n];
+        int index = gen_real_random() * n;
+        double beta = 0.0;
+        double wmax = max(w, n);
+        for (int i = 0; i < n; i++)
+        {
+            beta += gen_real_random() * 2.0 * wmax;
+            while (w[index] < beta)
+            {
+                beta -= w[index];
+                index = mod((index + 1), n);
+            }
+            p3[i] = p[index];
+        }
+        for (int k=0; k < n; k++) {
+            p[k] = p3[k];
+            //cout << p[k].show_pose() << endl;
+        }
+        /*5. Error*/
+        //double error = evaluation(myrobot, p, n);
+        //cout << "Step = " << t << ", Evaluation = " << evaluation(myrobot, p, n) << endl;
+        //Graph the position of the robot and the particles at each step
+        visualization(n, myrobot, t, p2, p3);
+    }
     return 0;
 }
